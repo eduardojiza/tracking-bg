@@ -2,8 +2,6 @@ package com.red_folder.phonegap.plugin.backgroundservice.sample;
 
 import android.util.Log;
 
-import com.red_folder.phonegap.plugin.backgroundservice.BackgroundService;
-
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -15,7 +13,7 @@ import java.util.List;
 /**
  * Created by Eduardo Jimenez on 13/01/2016.
  */
-public class MyService extends BackgroundService {
+public class NetworkService extends BackgroundService {
     private static final String TAG = "FILE TRANSFER";
     private static final String CHARSET = "UTF-8";
     private static final String KEY_ARRAY = "files";
