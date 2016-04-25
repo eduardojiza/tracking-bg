@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
         xmlns:android="http://schemas.android.com/apk/res/android"
-        id="com.red_folder.phonegap.plugin.backgroundservice.sample"
+        id="com.inffinix.plugins"
         version="2.0.0">
 
     <name>Background Service Plugin - Sample Background Service</name>
@@ -24,22 +24,22 @@
 
 		<!--<asset src="www/myService.html" target="myService.html" />-->
 
-		<js-module src="www/myService.js" name="MyService">
-			<clobbers target="cordova.plugins.myService" />
+		<js-module src="www/networkService.js" name="NetworkService">
+			<clobbers target="cordova.plugins.networkService" />
 		</js-module>
 
         <config-file target="AndroidManifest.xml" parent="/manifest/application">
   
-            <service android:name="com.red_folder.phonegap.plugin.backgroundservice.sample.MyService">
+            <service android:name="com.inffinix.plugins.NetworkService">
                 <intent-filter>         
-                    <action android:name="com.red_folder.phonegap.plugin.backgroundservice.sample.MyService"/> 
+                    <action android:name="com.inffinix.plugins.NetworkService"/> 
                 </intent-filter>     
             </service>
             
         </config-file>
         
-        <source-file src="src/android/MyService.java" target-dir="src/com/red_folder/phonegap/plugin/backgroundservice/sample" />
-        <source-file src="src/android/HttpFileUploader.java" target-dir="src/com/red_folder/phonegap/plugin/backgroundservice/sample" />
+        <source-file src="src/android/NetworkService.java" target-dir="src/com/inffinix/plugins" />
+        <source-file src="src/android/HttpFileUploader.java" target-dir="src/com/inffinix/plugins" />
     </platform>
 	
 </plugin>

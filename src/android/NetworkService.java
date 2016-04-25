@@ -1,6 +1,8 @@
-package com.red_folder.phonegap.plugin.backgroundservice.sample;
+package com.inffinix.plugins;
 
 import android.util.Log;
+
+import com.red_folder.phonegap.plugin.backgroundservice.BackgroundService;
 
 import org.json.JSONArray;
 import org.json.JSONException;

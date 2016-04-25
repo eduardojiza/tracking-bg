@@ -1,4 +1,4 @@
-package com.red_folder.phonegap.plugin.backgroundservice.sample;
+package com.inffinix.plugins;
 
 import android.util.Log;
 
