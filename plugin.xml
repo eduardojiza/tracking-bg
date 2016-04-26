@@ -4,10 +4,10 @@
         id="com.inffinix.plugins"
         version="2.0.0">
 
-    <name>Background Service Plugin - Sample Background Service</name>
+    <name>Background Service Plugin file transfer</name>
 
     <description>
-        Sample service to demonstrate the use of the Cordova Android Background Service
+        it uploads files
     </description>
 
     <license>Apache 2.0</license>
@@ -35,6 +35,8 @@
                     <action android:name="com.inffinix.plugins.NetworkService"/> 
                 </intent-filter>     
             </service>
+
+            <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
             
         </config-file>
         
