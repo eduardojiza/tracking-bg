@@ -10,6 +10,8 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -24,62 +26,59 @@ public class NetworkService extends BackgroundService {
     private static final String KEY_SERVER = "server";
     private static final String KEY_PARAMS = "params";
     private static final String USER_AGENT = "inffinix";
-    private JSONObject configuration;
+
     private HttpFileUploader httpFileUploader;
     private JSONObject params;
     private JSONObject result;
-    private JSONArray elements;
     private JSONArray elementsResponse;
-    private JSONObject element;
     private String filePath;
     private String server;
     private String fileName;
+    private List< JSONObject> JSONelements = new ArrayList<JSONObject>();
     private List<String> response;
+    Iterator<JSONObject> iterator;
 
 
     @Override
     protected JSONObject doWork() {
         //configuration was initializing on setConfig
         result = null;
-        if ( configuration != null ){
+        if ( !JSONelements.isEmpty() ){
             try {
                 result = new JSONObject();
                 elementsResponse = new JSONArray();
 
-                elements = configuration.getJSONArray( KEY_ARRAY );
-                for( int i = 0; i < elements.length(); i++ ) {
-                    element = elements.getJSONObject( i );
+                iterator = JSONelements.iterator();
+                while( iterator.hasNext() ) {
+                    JSONObject element = iterator.next();
 
-                    //it checks required values
-                    if( element.has( KEY_FILE_PATH ) && element.has( KEY_SERVER ) && element.has( KEY_FILE_NAME ) ) {
-                        filePath = element.getString( KEY_FILE_PATH );
-                        server = element.getString( KEY_SERVER );
-                        fileName = element.getString( KEY_FILE_NAME );
-                        Log.v(TAG, KEY_FILE_PATH + " = " + filePath + " ,  " + KEY_SERVER + " = " + server + " ,  " + KEY_FILE_NAME + " = " + fileName);
-                        httpFileUploader = new HttpFileUploader( server, CHARSET );
-                        httpFileUploader.addHeaderField("User-Agent", USER_AGENT);
+                    filePath = element.getString( KEY_FILE_PATH );
+                    server = element.getString( KEY_SERVER );
+                    fileName = element.getString( KEY_FILE_NAME );
+                    Log.v(TAG, KEY_FILE_PATH + " = " + filePath + " ,  " + KEY_SERVER + " = " + server + " ,  " + KEY_FILE_NAME + " = " + fileName);
+                    httpFileUploader = new HttpFileUploader( server, CHARSET );
+                    httpFileUploader.addHeaderField("User-Agent", USER_AGENT);
 
-                        File sourceFile = new File( filePath );
-                        if( sourceFile.exists() ){
-                            httpFileUploader.addFilePart( fileName, sourceFile );
-                        }
+                    File sourceFile = new File( filePath );
+                    if( sourceFile.exists() ){
+                        httpFileUploader.addFilePart( fileName, sourceFile );
+                    }
 
-                        if ( element.has( KEY_PARAMS ) ) {
-                            params = element.getJSONObject( KEY_PARAMS );
-                            for ( int j = 0; j < params.names().length(); j++ ) {
-                                Log.v( TAG, "key = " + params.names().getString( j ) + " value = " + params.get( params.names().getString( j ) ) );
-                                httpFileUploader.addFormField(params.names().getString(j), params.get(params.names().getString(j)).toString());
-                            }
+                    if ( element.has( KEY_PARAMS ) ) {
+                        params = element.getJSONObject( KEY_PARAMS );
+                        for ( int j = 0; j < params.names().length(); j++ ) {
+                            Log.v( TAG, "key = " + params.names().getString( j ) + " value = " + params.get( params.names().getString( j ) ) );
+                            httpFileUploader.addFormField(params.names().getString(j), params.get(params.names().getString(j)).toString());
                         }
                     }
 
                     //it processes response
                     response = httpFileUploader.finish();
-                    System.out.println("SERVER REPLIED:");
+                    System.out.print("SERVER REPLIED: ");
                     for ( String line : response ) {
                         System.out.println( line );
                     }
-
+                    iterator.remove();
                     elementsResponse.put( element );
                 }
 
@@ -88,14 +87,11 @@ public class NetworkService extends BackgroundService {
 
             } catch ( JSONException e ) {
                 e.printStackTrace();
-                configuration = null;
             } catch ( IOException e ) {
-                e.printStackTrace();
-                configuration = null;
+              e.printStackTrace();
             }
         }
 
-        configuration = null;
         return result;
     }
 
@@ -107,12 +103,10 @@ public class NetworkService extends BackgroundService {
     }
 
     @Override
-    protected void setConfig( JSONObject config ) {
+    protected void setConfig( JSONObject element ) {
         Log.d(TAG, "--------------------- setConfig ---------------------");
-        if ( config.has( KEY_ARRAY ) ){
-            configuration = config;
-        } else {
-            configuration = null;
+        if ( element.has( KEY_FILE_PATH ) && element.has( KEY_SERVER ) && element.has( KEY_FILE_NAME ) ){
+            JSONelements.add( element );
         }
     }
 
