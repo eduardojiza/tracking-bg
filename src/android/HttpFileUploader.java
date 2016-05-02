@@ -1,109 +1,118 @@
 package com.inffinix.plugins;
 
-import java.io.BufferedReader;
+import android.util.Log;
+
+import com.red_folder.phonegap.plugin.backgroundservice.BackgroundService;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLConnection;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
- * Created by Eduardo Jimenez on 18/01/2016.
+ * Created by Eduardo Jimenez on 13/01/2016.
  */
-public class HttpFileUploader {
-    private final String boundary;
-    private static final String LINE_FEED = "\r\n";
-    private HttpURLConnection httpConn;
-    private String charset;
-    private OutputStream outputStream;
-    private PrintWriter writer;
+public class NetworkService extends BackgroundService {
+    private static final String TAG = "FILE TRANSFER";
+    private static final String CHARSET = "UTF-8";
+    private static final String KEY_ARRAY = "files";
+    private static final String KEY_FILE_PATH = "filePath";
+    private static final String KEY_FILE_NAME = "fileName";
+    private static final String KEY_SERVER = "server";
+    private static final String KEY_PARAMS = "params";
+    private static final String USER_AGENT = "inffinix";
 
-    public HttpFileUploader( String requestURL, String charset ) throws IOException {
-        this.charset = charset;
+    private HttpFileUploader httpFileUploader;
+    private JSONObject params;
+    private JSONObject result;
+    private JSONArray elementsResponse;
+    private String filePath;
+    private String server;
+    private String fileName;
+    private List< JSONObject> JSONelements = new ArrayList<JSONObject>();
+    private List<String> response;
+    Iterator<JSONObject> iterator;
 
-        // creates a unique boundary based on time stamp
-        boundary = "===" + System.currentTimeMillis() + "===";
 
-        URL url = new URL( requestURL );
-        httpConn = ( HttpURLConnection ) url.openConnection();
-        httpConn.setUseCaches( false );
-        httpConn.setDoOutput( true ); // indicates POST method
-        httpConn.setDoInput( true );
-        httpConn.setRequestProperty( "Content-Type",
-                                     "multipart/form-data; boundary=" + boundary );
-        //httpConn.setRequestProperty( "User-Agent", "CodeJava Agent" );
-        //httpConn.setRequestProperty("Test", "Bonjour");
-        outputStream = httpConn.getOutputStream();
-        writer = new PrintWriter( new OutputStreamWriter( outputStream, charset ), true );
-    }
+    @Override
+    protected JSONObject doWork() {
+        //configuration was initializing on setConfig
+        result = null;
+        if ( !JSONelements.isEmpty() ){
+            try {
+                result = new JSONObject();
+                elementsResponse = new JSONArray();
 
-    public void addFormField( String name, String value ) {
-        writer.append( "--" + boundary ).append( LINE_FEED );
-        writer.append( "Content-Disposition: form-data; name=\"" + name + "\"" ).append( LINE_FEED );
-        writer.append( "Content-Type: text/plain; charset=" + charset ).append( LINE_FEED );
-        writer.append( LINE_FEED );
-        writer.append( value ).append( LINE_FEED );
-        writer.flush();
-    }
+                iterator = JSONelements.iterator();
+                while( iterator.hasNext() ) {
+                    JSONObject element = iterator.next();
 
-    public void addFilePart( String fieldName, File uploadFile ) throws IOException {
-        String fileName = uploadFile.getName();
-        writer.append( "--" + boundary ).append( LINE_FEED );
-        writer.append( "Content-Disposition: form-data; name=\"" + fieldName
-                        + "\"; filename=\"" + fileName + "\"" ).append( LINE_FEED );
-        writer.append( "Content-Type: "
-                        + URLConnection.guessContentTypeFromName( fileName ) ).append( LINE_FEED );
-        writer.append( "Content-Transfer-Encoding: binary" ).append( LINE_FEED );
-        writer.append( LINE_FEED );
-        writer.flush();
+                    filePath = element.getString( KEY_FILE_PATH );
+                    server = element.getString( KEY_SERVER );
+                    fileName = element.getString( KEY_FILE_NAME );
+                    Log.v(TAG, KEY_FILE_PATH + " = " + filePath + " ,  " + KEY_SERVER + " = " + server + " ,  " + KEY_FILE_NAME + " = " + fileName);
+                    httpFileUploader = new HttpFileUploader( server, CHARSET );
+                    httpFileUploader.addHeaderField("User-Agent", USER_AGENT);
 
-        FileInputStream inputStream = new FileInputStream( uploadFile );
-        byte[] buffer = new byte[ 4096 ];
-        int bytesRead = -1;
-        while ( ( bytesRead = inputStream.read( buffer ) ) != -1 ) {
-            outputStream.write( buffer, 0, bytesRead );
-        }
-        outputStream.flush();
-        inputStream.close();
+                    File sourceFile = new File( filePath );
+                    if( sourceFile.exists() ){
+                        httpFileUploader.addFilePart( fileName, sourceFile );
+                    }
 
-        writer.append( LINE_FEED );
-        writer.flush();
-    }
+                    if ( element.has( KEY_PARAMS ) ) {
+                        params = element.getJSONObject( KEY_PARAMS );
+                        for ( int j = 0; j < params.names().length(); j++ ) {
+                            Log.v( TAG, "key = " + params.names().getString( j ) + " value = " + params.get( params.names().getString( j ) ) );
+                            httpFileUploader.addFormField(params.names().getString(j), params.get(params.names().getString(j)).toString());
+                        }
+                    }
 
-    public void addHeaderField( String name, String value ) {
-        writer.append( name + ": " + value ).append( LINE_FEED );
-        writer.flush();
-    }
+                    //it processes response
+                    response = httpFileUploader.finish();
+                    System.out.print("SERVER REPLIED: ");
+                    for ( String line : response ) {
+                        System.out.println( line );
+                    }
+                    iterator.remove();
+                    elementsResponse.put( element );
+                }
 
-    public List< String > finish() throws IOException {
-        List< String > response = new ArrayList< String >();
+                //return to js
+                result.put( KEY_ARRAY, elementsResponse );
 
-        writer.append( LINE_FEED ).flush();
-        writer.append( "--" + boundary + "--" ).append( LINE_FEED );
-        writer.close();
-
-        // checks server's status code first
-        int status = httpConn.getResponseCode();
-        if ( status == HttpURLConnection.HTTP_OK ) {
-            BufferedReader reader = new BufferedReader( new InputStreamReader( httpConn.getInputStream() ) );
-            String line = null;
-            while ( ( line = reader.readLine() ) != null ) {
-                response.add( line );
+            } catch ( JSONException e ) {
+                e.printStackTrace();
+            } catch ( IOException e ) {
+              e.printStackTrace();
             }
-            reader.close();
-            httpConn.disconnect();
-        } else {
-            throw new IOException( "Server returned non-OK status: " + status );
         }
 
-        return response;
+        return result;
     }
 
+    @Override
+    protected JSONObject getConfig() {
+        JSONObject result = new JSONObject();
+        Log.d( TAG, "--------------------- getConfig -----------------------" );
+        return result;
+    }
+
+    @Override
+    protected void setConfig( JSONObject element ) {
+        Log.d(TAG, "--------------------- setConfig ---------------------");
+        if ( element.has( KEY_FILE_PATH ) && element.has( KEY_SERVER ) && element.has( KEY_FILE_NAME ) ){
+            JSONelements.add( element );
+        }
+    }
+
+    @Override
+    protected JSONObject initialiseLatestResult() {
+        JSONObject result = new JSONObject();
+        return result;
+    }
 }
