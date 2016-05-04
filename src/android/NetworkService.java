@@ -26,6 +26,7 @@ public class NetworkService extends BackgroundService {
     private static final String KEY_SERVER = "server";
     private static final String KEY_PARAMS = "params";
     private static final String USER_AGENT = "inffinix";
+    private static final String KEY_REPPLY = "replied";
 
     private HttpFileUploader httpFileUploader;
     private JSONObject params;
@@ -79,6 +80,8 @@ public class NetworkService extends BackgroundService {
                         System.out.println( line );
                     }
                     iterator.remove();
+
+                    element.put( KEY_REPPLY, response );
                     elementsResponse.put( element );
                 }
 
