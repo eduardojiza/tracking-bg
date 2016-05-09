@@ -28,6 +28,7 @@ public class NetworkService extends BackgroundService {
     private static final String USER_AGENT = "inffinix";
     private static final String KEY_REPPLY = "replied";
     private static final String KEY_REMOVE = "remove";
+    private static final String KEY_RESPONSE_OK = "response";
 
     private HttpFileUploader httpFileUploader;
     private JSONObject params;
@@ -84,9 +85,16 @@ public class NetworkService extends BackgroundService {
                     iterator.remove();
 
                     if( element.has( KEY_REMOVE ) ) {
-                        if ( element.getBoolean( KEY_REMOVE ) ) {
-                            sourceFile.delete();
+                        if( element.has( KEY_RESPONSE_OK ) ) {
+                            if ( element.getBoolean( KEY_REMOVE ) && response.get( 0 ).equals( element.getString( KEY_RESPONSE_OK ) ) ) {
+                                sourceFile.delete();
+                            }
+                        } else {
+                            if ( element.getBoolean( KEY_REMOVE ) ) {
+                                sourceFile.delete();
+                            }
                         }
+                        System.out.print("delete file");
                     }
 
                     element.put( KEY_REPPLY, response );
