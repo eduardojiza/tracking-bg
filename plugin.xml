@@ -21,12 +21,20 @@
 
     <!-- android -->
     <platform name="android">
-
-		<!--<asset src="www/myService.html" target="myService.html" />-->
-
 		<js-module src="www/networkService.js" name="NetworkService">
 			<clobbers target="cordova.plugins.networkService" />
 		</js-module>
+
+        <framework src="libs/google-play-services_lib" custom="true" />
+
+        <config-file target="AndroidManifest.xml" parent="/manifest/application">
+            <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+        </config-file>
+
+        <config-file target="AndroidManifest.xml" parent="/manifest/application">
+            <meta-data android:name="com.google.android.gms.version" android:value="@integer/google_play_services_version" />
+        </config-file>
+
 
         <config-file target="AndroidManifest.xml" parent="/manifest/application">
             <service android:name="com.inffinix.plugins.NetworkService">
