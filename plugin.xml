@@ -28,13 +28,8 @@
         <framework src="libs/google-play-services_lib" custom="true" />
 
         <config-file target="AndroidManifest.xml" parent="/manifest/application">
-            <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-        </config-file>
-
-        <config-file target="AndroidManifest.xml" parent="/manifest/application">
             <meta-data android:name="com.google.android.gms.version" android:value="@integer/google_play_services_version" />
         </config-file>
-
 
         <config-file target="AndroidManifest.xml" parent="/manifest/application">
             <service android:name="com.inffinix.plugins.NetworkService">
@@ -46,6 +41,9 @@
 
         <config-file target="AndroidManifest.xml" parent="/manifest">
             <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+        </config-file>
+        <config-file target="AndroidManifest.xml" parent="/manifest">
+            <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
         </config-file>
         
         <source-file src="src/android/NetworkService.java" target-dir="src/com/inffinix/plugins" />
