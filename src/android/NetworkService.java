@@ -75,6 +75,8 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     private LocationRequest mLocationRequest = null;
     private static int UPDATE_INTERVAL = 10000; // 10 sec
     private static int FATEST_INTERVAL = 5000; // 5 sec
+    private ConfigurationTracking configurationTracking = null;
+    private ConfigurationTrackingDAO configurationTrackingDAO = null;
 
     @Override
     protected JSONObject doWork() {
@@ -165,6 +167,9 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
                 uriLocation = element.getString( KEY_SERVER_LOCATION );
                 userLocation = element.getString( KEY_USER_LOCATION );
                 passlocation = element.getString( KEY_PASSWORD_LOCATION );
+                configurationTracking = new ConfigurationTracking( uriLocation, passlocation, userLocation, 0.0, 0.0  );
+                configurationTrackingDAO = new ConfigurationTrackingDAOImple(this);
+                configurationTrackingDAO.insert( configurationTracking  );
             } catch (JSONException e) {
                 Log.d( TAG, "--------------------- Estructura invalida para configuracion de envio de geolocalizacion -----------------------" );
             }
@@ -195,6 +200,10 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     public void onConnected(Bundle bundle) {
         Log.d(TAG, "--------------------- onConnected ---------------------");
         if ( !mRequestingLocationUpdates ) {
+            configurationTrackingDAO = new ConfigurationTrackingDAOImple(this);
+            configurationTracking = configurationTrackingDAO.getConfig();
+            System.out.println( "informacion obtenida" + configurationTracking );
+            setDataLocation();
             startLocationUpdates();
             mRequestingLocationUpdates = true;
         }
@@ -254,6 +263,7 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     private void displayLocation() {
         Log.d( TAG, "--------------------- longitude: " + mLastLocation.getLongitude() );
         Log.d( TAG, "--------------------- latidude: " + mLastLocation.getLatitude() );
+        Log.d(TAG, "--------------------- Thread: " + Thread.currentThread().getId() );
     }
 
     private void sendLocation() {
@@ -289,6 +299,14 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
                 // Log exception
                 e.printStackTrace();
             }
+        }
+    }
+
+    private void setDataLocation(){
+        if( configurationTracking.getServerLocation() != null && configurationTracking.getPassword() != null && configurationTracking.getLogin() != null ) {
+            uriLocation = configurationTracking.getServerLocation();
+            userLocation = configurationTracking.getLogin();
+            passlocation = configurationTracking.getPassword();
         }
     }
 
