@@ -64,8 +64,8 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     private GoogleApiClient mGoogleApiClient = null;
     private boolean mRequestingLocationUpdates = false;
     private LocationRequest mLocationRequest = null;
-    private static int UPDATE_INTERVAL = 10000; // 10 sec
-    private static int FATEST_INTERVAL = 5000; // 5 sec
+    private static int UPDATE_INTERVAL = 60000; // 10 sec
+    private static int FATEST_INTERVAL = 10000; // 5 sec
     private ConfigurationTracking configurationTracking = null;
     private ConfigurationTrackingDAO configurationTrackingDAO = null;
 
@@ -103,71 +103,6 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
         } catch (JSONException e) {
             e.printStackTrace();
         }
-
-        /*if ( !JSONelements.isEmpty() ){
-            try {
-                result = new JSONObject();
-                elementsResponse = new JSONArray();
-
-                iterator = JSONelements.iterator();
-                while( iterator.hasNext() ) {
-                    JSONObject element = iterator.next();
-
-                    filePath = element.getString( KEY_FILE_PATH );
-                    server = element.getString( KEY_SERVER );
-                    fileName = element.getString( KEY_FILE_NAME );
-                    Log.v(TAG, KEY_FILE_PATH + " = " + filePath + " ,  " + KEY_SERVER + " = " + server + " ,  " + KEY_FILE_NAME + " = " + fileName);
-                    httpFileUploader = new HttpFileUploader( server, CHARSET );
-                    httpFileUploader.addHeaderField("User-Agent", USER_AGENT);
-
-                    File sourceFile = new File( filePath );
-                    if( sourceFile.exists() ){
-                        httpFileUploader.addFilePart( fileName, sourceFile );
-                    }
-
-                    if ( element.has( KEY_PARAMS ) ) {
-                        params = element.getJSONObject( KEY_PARAMS );
-                        for ( int j = 0; j < params.names().length(); j++ ) {
-                            Log.v( TAG, "key = " + params.names().getString( j ) + " value = " + params.get( params.names().getString( j ) ) );
-                            httpFileUploader.addFormField(params.names().getString(j), params.get(params.names().getString(j)).toString());
-                        }
-                    }
-
-                    //it processes response
-                    response = httpFileUploader.finish();
-                    System.out.print("SERVER REPLIED: ");
-                    for ( String line : response ) {
-                        System.out.println( line );
-                    }
-
-                    iterator.remove();
-
-                    if( element.has( KEY_REMOVE ) ) {
-                        if( element.has( KEY_RESPONSE_OK ) ) {
-                            if ( element.getBoolean( KEY_REMOVE ) && response.get( 0 ).equals( element.getString( KEY_RESPONSE_OK ) ) ) {
-                                sourceFile.delete();
-                            }
-                        } else {
-                            if ( element.getBoolean( KEY_REMOVE ) ) {
-                                sourceFile.delete();
-                            }
-                        }
-                        System.out.print("delete file");
-                    }
-
-                    element.put( KEY_REPPLY, response );
-                    elementsResponse.put( element );
-                }
-
-                //return to js
-                result.put( KEY_ARRAY, elementsResponse );
-
-            } catch ( JSONException e ) {
-                e.printStackTrace();
-            } catch ( IOException e ) {
-              e.printStackTrace();
-            }
-        }*/
 
         return result;
     }
