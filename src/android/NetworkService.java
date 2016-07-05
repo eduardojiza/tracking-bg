@@ -30,8 +30,10 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created by Eduardo Jimenez on 13/01/2016.
@@ -39,26 +41,15 @@ import java.util.List;
 public class NetworkService extends BackgroundService implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener {
     private static final String TAG = "FILE TRANSFER";
     private static final String CHARSET = "UTF-8";
-    private static final String KEY_ARRAY = "files";
     private static final String KEY_FILE_PATH = "filePath";
     private static final String KEY_FILE_NAME = "fileName";
     private static final String KEY_SERVER = "server";
     private static final String KEY_PARAMS = "params";
     private static final String USER_AGENT = "inffinix";
-    private static final String KEY_REPPLY = "replied";
-    private static final String KEY_REMOVE = "remove";
-    private static final String KEY_RESPONSE_OK = "response";
+    private static final String KEY_ARRAY = "files";
 
     private HttpFileUploader httpFileUploader;
-    private JSONObject params;
-    private JSONObject result;
-    private JSONArray elementsResponse;
-    private String filePath;
-    private String server;
-    private String fileName;
-    private List< JSONObject > JSONelements = new ArrayList<JSONObject>();
-    private List< String > response;
-    Iterator< JSONObject > iterator;
+    private FileToSendDAO fileToSendDAO;
 
     //Location
     private String uriLocation = null;
@@ -81,8 +72,39 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     @Override
     protected JSONObject doWork() {
         //configuration was initializing on setConfig
-        result = null;
-        if ( !JSONelements.isEmpty() ){
+        JSONObject result = new JSONObject();
+        JSONArray elementsResponse = new JSONArray();
+        List< FileToSend > files = fileToSendDAO.getAll();
+
+        if( !files.isEmpty() ) {
+            for( FileToSend fileToSend : files ) {
+                try {
+                    Log.v(TAG, fileToSend.toString());
+
+                    List< String > response = sendFile ( fileToSend );
+                    for ( String line : response ) {
+                          Log.d( TAG, "SERVER REPLIED " + line );
+                    }
+
+                    //delete file from array
+                    fileToSendDAO.delete(fileToSend);
+                    //delete file from path
+                    File sourceFile = new File( fileToSend.getFilePath() );
+                    sourceFile.delete();
+                    elementsResponse.put( fileToSend );
+                } catch( IOException e ) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        try {
+            result.put( KEY_ARRAY, elementsResponse );
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        /*if ( !JSONelements.isEmpty() ){
             try {
                 result = new JSONObject();
                 elementsResponse = new JSONArray();
@@ -145,7 +167,7 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
             } catch ( IOException e ) {
               e.printStackTrace();
             }
-        }
+        }*/
 
         return result;
     }
@@ -160,25 +182,41 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     @Override
     protected void setConfig( JSONObject element ) {
         Log.d(TAG, "--------------------- setConfig ---------------------");
-        if ( element.has( KEY_FILE_PATH ) && element.has( KEY_SERVER ) && element.has( KEY_FILE_NAME ) ){
-            JSONelements.add( element );
-        } else if ( element.has( KEY_SERVER_LOCATION ) && element.has( KEY_USER_LOCATION ) && element.has( KEY_PASSWORD_LOCATION ) ) {
-            try {
+        try {
+            if ( element.has( KEY_FILE_PATH ) && element.has( KEY_SERVER ) && element.has( KEY_FILE_NAME ) ){
+                //FileToSend(String filePath, String fileName, String server, Map < String, String > parameters)
+                Map< String, String > parameters = null;
+                if ( element.has( KEY_PARAMS ) ) {
+                    parameters = new HashMap<String, String>();
+                    JSONObject  params = element.getJSONObject( KEY_PARAMS );
+                    for ( int j = 0; j < params.names().length(); j++ ) {
+                        parameters.put(params.names().getString(j), (String) params.get( params.names().getString( j ) ) );
+                    }
+                }
+                FileToSend temp = new FileToSend( element.getString( KEY_FILE_PATH ), element.getString( KEY_FILE_NAME ), element.getString( KEY_SERVER ), parameters );
+                fileToSendDAO.insert( temp );
+            } else if ( element.has( KEY_SERVER_LOCATION ) && element.has( KEY_USER_LOCATION ) && element.has( KEY_PASSWORD_LOCATION ) ) {
                 uriLocation = element.getString( KEY_SERVER_LOCATION );
                 userLocation = element.getString( KEY_USER_LOCATION );
                 passlocation = element.getString( KEY_PASSWORD_LOCATION );
                 configurationTracking = new ConfigurationTracking( uriLocation, passlocation, userLocation, 0.0, 0.0  );
                 configurationTrackingDAO = new ConfigurationTrackingDAOImple(this);
                 configurationTrackingDAO.insert( configurationTracking  );
-            } catch (JSONException e) {
-                Log.d( TAG, "--------------------- Estructura invalida para configuracion de envio de geolocalizacion -----------------------" );
             }
+        } catch (JSONException e) {
+            Log.d( TAG, "--------------------- Estructura invalida para configuracion -----------------------" );
         }
+
     }
 
     @Override
     protected JSONObject initialiseLatestResult() {
+        if (android.os.Build.VERSION.SDK_INT > 9) {
+            StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
+            StrictMode.setThreadPolicy(policy);
+        }
         JSONObject result = new JSONObject();
+        fileToSendDAO = new FileToSendDAOImple( this );
         Log.d(TAG, "--------------------- initialiseLatestResult ---------------------");
         // First we need to check availability of play services
         if ( mGoogleApiClient == null && checkPlayServices() ) {
@@ -199,10 +237,9 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     @Override
     public void onConnected(Bundle bundle) {
         Log.d(TAG, "--------------------- onConnected ---------------------");
-        if ( !mRequestingLocationUpdates ) {
+        if (!mRequestingLocationUpdates) {
             configurationTrackingDAO = new ConfigurationTrackingDAOImple(this);
             configurationTracking = configurationTrackingDAO.getConfig();
-            System.out.println( "informacion obtenida" + configurationTracking );
             setDataLocation();
             startLocationUpdates();
             mRequestingLocationUpdates = true;
@@ -263,42 +300,37 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     private void displayLocation() {
         Log.d( TAG, "--------------------- longitude: " + mLastLocation.getLongitude() );
         Log.d( TAG, "--------------------- latidude: " + mLastLocation.getLatitude() );
-        Log.d(TAG, "--------------------- Thread: " + Thread.currentThread().getId() );
     }
 
     private void sendLocation() {
         int SDK_INT = android.os.Build.VERSION.SDK_INT;
-        if ( SDK_INT > 8 ) {
-            StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
-            StrictMode.setThreadPolicy(policy);
-            HttpClient httpClient = new DefaultHttpClient();
-            HttpPost httpPost = new HttpPost(uriLocation);
-            List<NameValuePair> nameValuePair = new ArrayList<NameValuePair>(4);
-            nameValuePair.add( new BasicNameValuePair( KEY_PASSWORD_LOCATION, passlocation));
-            nameValuePair.add( new BasicNameValuePair( KEY_USER_LOCATION, userLocation));
-            nameValuePair.add( new BasicNameValuePair( KEY_LATITUDE, Double.toString( mLastLocation.getLatitude() ) ) );
-            nameValuePair.add( new BasicNameValuePair( KEY_LONGITUDE, Double.toString( mLastLocation.getLongitude() ) ) );
-            displayLocation();
-            //Encoding POST data
-            try {
-                httpPost.setEntity(new UrlEncodedFormEntity(nameValuePair));
+        HttpClient httpClient = new DefaultHttpClient();
+        HttpPost httpPost = new HttpPost(uriLocation);
+        List<NameValuePair> nameValuePair = new ArrayList<NameValuePair>(4);
+        nameValuePair.add( new BasicNameValuePair( KEY_PASSWORD_LOCATION, passlocation));
+        nameValuePair.add( new BasicNameValuePair( KEY_USER_LOCATION, userLocation));
+        nameValuePair.add( new BasicNameValuePair( KEY_LATITUDE, Double.toString( mLastLocation.getLatitude() ) ) );
+        nameValuePair.add( new BasicNameValuePair( KEY_LONGITUDE, Double.toString( mLastLocation.getLongitude() ) ) );
+        displayLocation();
+        //Encoding POST data
+        try {
+            httpPost.setEntity(new UrlEncodedFormEntity(nameValuePair));
 
-            } catch (UnsupportedEncodingException e) {
-                Log.d(TAG, "EN UrlEncodedFormEntity");
-                e.printStackTrace();
-            }
+        } catch (UnsupportedEncodingException e) {
+            Log.d(TAG, "EN UrlEncodedFormEntity");
+            e.printStackTrace();
+        }
 
-            try {
-                HttpResponse response = httpClient.execute(httpPost);
-                // write response to log
-                Log.d("Http Post Response:", response.toString());
-            } catch (ClientProtocolException e) {
-                // Log exception
-                e.printStackTrace();
-            } catch (IOException e) {
-                // Log exception
-                e.printStackTrace();
-            }
+        try {
+            HttpResponse response = httpClient.execute(httpPost);
+            // write response to log
+            Log.d("Http Post Response:", response.toString());
+        } catch (ClientProtocolException e) {
+            // Log exception
+            e.printStackTrace();
+        } catch (IOException e) {
+            // Log exception
+            e.printStackTrace();
         }
     }
 
@@ -308,6 +340,31 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
             userLocation = configurationTracking.getLogin();
             passlocation = configurationTracking.getPassword();
         }
+    }
+
+    private List< String > sendFile( FileToSend fileToSend ) throws IOException {
+        Map< String, String > parameters = fileToSend.getParameters();
+
+        httpFileUploader = new HttpFileUploader( fileToSend.getServer(), CHARSET );
+        httpFileUploader.addHeaderField("User-Agent", USER_AGENT);
+
+        if( parameters != null ) {
+            Iterator it = parameters.entrySet().iterator();
+            while ( it.hasNext() ) {
+                Map.Entry pair = ( Map.Entry )it.next();
+                Log.d("----parameter", pair.getKey() + " = " + pair.getValue());
+                httpFileUploader.addFormField(""+pair.getKey(), ""+pair.getValue());
+                it.remove(); // avoids a ConcurrentModificationException
+            }
+        }
+
+        File sourceFile = new File( fileToSend.getFilePath() );
+        if( sourceFile.exists() ){
+            httpFileUploader.addFilePart(fileToSend.getFileName(), sourceFile);
+        }
+
+        return httpFileUploader.finish();
+
     }
 
     @Override

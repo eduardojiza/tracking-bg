@@ -51,6 +51,9 @@
         <source-file src="src/android/ConfigurationTracking.java" target-dir="src/com/inffinix/plugins" />
         <source-file src="src/android/ConfigurationTrackingDAO.java" target-dir="src/com/inffinix/plugins" />
         <source-file src="src/android/ConfigurationTrackingDAOImple.java" target-dir="src/com/inffinix/plugins" />
+        <source-file src="src/android/FileToSend.java" target-dir="src/com/inffinix/plugins" />
+        <source-file src="src/android/FileToSendDAO.java" target-dir="src/com/inffinix/plugins" />
+        <source-file src="src/android/FileToSendDAOImple.java" target-dir="src/com/inffinix/plugins" />
     </platform>
 	
 </plugin>
