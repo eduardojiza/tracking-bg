@@ -86,9 +86,6 @@ public class FileToSendDAOImple implements FileToSendDAO {
             list = (List<FileToSend>)input.readObject();
             input.close();
             stream.close();
-
-            File file = context.getFileStreamPath("persistenceList.obj");
-            Log.d("------- size", "" + file.length());
         } catch (ClassNotFoundException ex) {
             ex.printStackTrace();
         } catch (IOException ex) {
@@ -97,20 +94,17 @@ public class FileToSendDAOImple implements FileToSendDAO {
         return list;
     }
 
-    private int saveArray() {
-        int response = -1;
+    private void saveArray() {
         try {
             FileOutputStream stream = context.openFileOutput( PATH_FILE, Context.MODE_PRIVATE );
             output = new ObjectOutputStream( stream );
             output.writeObject( list );
             output.close();
             stream.close();
-            response = 0;
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return response;
     }
 }
