@@ -39,6 +39,7 @@ import java.util.Map;
  * Created by Eduardo Jimenez on 13/01/2016.
  */
 public class NetworkService extends BackgroundService implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener {
+    //Parse JSON File
     private static final String TAG = "FILE TRANSFER";
     private static final String CHARSET = "UTF-8";
     private static final String KEY_FILE_PATH = "filePath";
@@ -48,6 +49,13 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     private static final String USER_AGENT = "inffinix";
     private static final String KEY_ARRAY = "files";
 
+    //Parse JSON Location
+    private static final String KEY_SERVER_LOCATION = "serverLocation";
+    private static final String KEY_PASSWORD_LOCATION = "password";
+    private static final String KEY_USER_LOCATION = "login";
+    private static final String KEY_LATITUDE = "latitude";
+    private static final String KEY_LONGITUDE = "longitude";
+
     private HttpFileUploader httpFileUploader;
     private FileToSendDAO fileToSendDAO;
 
@@ -55,17 +63,12 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     private String uriLocation = null;
     private String passlocation = null;
     private String userLocation = null;
-    private static final String KEY_SERVER_LOCATION = "serverLocation";
-    private static final String KEY_PASSWORD_LOCATION = "password";
-    private static final String KEY_USER_LOCATION = "login";
-    private static final String KEY_LATITUDE = "latitude";
-    private static final String KEY_LONGITUDE = "longitude";
     private Location mLastLocation = null;
     private GoogleApiClient mGoogleApiClient = null;
     private boolean mRequestingLocationUpdates = false;
     private LocationRequest mLocationRequest = null;
-    private static int UPDATE_INTERVAL = 60000; // 10 sec
-    private static int FATEST_INTERVAL = 10000; // 5 sec
+    private static int UPDATE_INTERVAL = 600000; // 10 sec
+    private static int FATEST_INTERVAL = 15000; // 5 sec
     private ConfigurationTracking configurationTracking = null;
     private ConfigurationTrackingDAO configurationTrackingDAO = null;
 
@@ -74,6 +77,8 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
         //configuration was initializing on setConfig
         JSONObject result = new JSONObject();
         JSONArray elementsResponse = new JSONArray();
+
+
         List< FileToSend > files = fileToSendDAO.getAll();
 
         if( !files.isEmpty() ) {
@@ -81,7 +86,7 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
                 try {
                     Log.v(TAG, fileToSend.toString());
 
-                    List< String > response = sendFile ( fileToSend );
+                    List< String > response = sendFile( fileToSend );
                     for ( String line : response ) {
                           Log.d( TAG, "SERVER REPLIED " + line );
                     }
@@ -146,13 +151,13 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
 
     @Override
     protected JSONObject initialiseLatestResult() {
+        Log.d(TAG, "--------------------- initialiseLatestResult ---------------------");
         if (android.os.Build.VERSION.SDK_INT > 9) {
             StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
             StrictMode.setThreadPolicy(policy);
         }
         JSONObject result = new JSONObject();
         fileToSendDAO = new FileToSendDAOImple( this );
-        Log.d(TAG, "--------------------- initialiseLatestResult ---------------------");
         // First we need to check availability of play services
         if ( mGoogleApiClient == null && checkPlayServices() ) {
             buildGoogleApiClient();
@@ -238,7 +243,6 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     }
 
     private void sendLocation() {
-        int SDK_INT = android.os.Build.VERSION.SDK_INT;
         HttpClient httpClient = new DefaultHttpClient();
         HttpPost httpPost = new HttpPost(uriLocation);
         List<NameValuePair> nameValuePair = new ArrayList<NameValuePair>(4);
