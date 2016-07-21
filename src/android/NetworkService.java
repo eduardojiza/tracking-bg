@@ -1,6 +1,7 @@
 package com.inffinix.plugins;
 
 import android.location.Location;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.StrictMode;
 import android.util.Log;
@@ -16,12 +17,12 @@ import com.red_folder.phonegap.plugin.backgroundservice.BackgroundService;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -30,10 +31,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
+import java.util.Date;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Created by Eduardo Jimenez on 13/01/2016.
@@ -48,6 +47,11 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     private static final String KEY_PARAMS = "params";
     private static final String USER_AGENT = "inffinix";
     private static final String KEY_ARRAY = "files";
+    private static final String KEY_PASSWORD = "password";
+    private static final String KEY_LOGIN = "login";
+    private static final String KEY_GROUP = "group";
+    private static final String KEY_ACCOUNT = "account";
+    private static final String KEY_DESCRIPTION = "description";
 
     //Parse JSON Location
     private static final String KEY_SERVER_LOCATION = "serverLocation";
@@ -56,60 +60,60 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     private static final String KEY_LATITUDE = "latitude";
     private static final String KEY_LONGITUDE = "longitude";
 
+    private static final int TYPE_LOCATION_OK = 0;
+    private static final int TYPE_LOCATION_ERROR = 1;
+
     private HttpFileUploader httpFileUploader;
     private FileToSendDAO fileToSendDAO;
+    private List< FileToSend > files;
+    private List< FileToSend > filesSended;
+    private JSONArray filesTemp;
+    private JSONObject result = null;
+    private List< String > response = null;
+    private LocationDAO locationDAO;
+    private List<com.inffinix.plugins.Location> locations;
 
     //Location
     private String uriLocation = null;
     private String passlocation = null;
     private String userLocation = null;
-    private Location mLastLocation = null;
     private GoogleApiClient mGoogleApiClient = null;
     private boolean mRequestingLocationUpdates = false;
     private LocationRequest mLocationRequest = null;
-    private static int UPDATE_INTERVAL = 600000; // 10 sec
-    private static int FATEST_INTERVAL = 15000; // 5 sec
+    private static int UPDATE_INTERVAL = 10000; // 10 sec
+    private static int FATEST_INTERVAL = 5000; // 5 sec
+    private static int DISPLACEMENT = 10;
     private ConfigurationTracking configurationTracking = null;
     private ConfigurationTrackingDAO configurationTrackingDAO = null;
 
     @Override
     protected JSONObject doWork() {
-        //configuration was initializing on setConfig
-        JSONObject result = new JSONObject();
-        JSONArray elementsResponse = new JSONArray();
-
-
-        List< FileToSend > files = fileToSendDAO.getAll();
-
-        if( !files.isEmpty() ) {
-            for( FileToSend fileToSend : files ) {
-                try {
-                    Log.v(TAG, fileToSend.toString());
-
-                    List< String > response = sendFile( fileToSend );
-                    for ( String line : response ) {
-                          Log.d( TAG, "SERVER REPLIED " + line );
-                    }
-
-                    //delete file from array
-                    fileToSendDAO.delete(fileToSend);
-                    //delete file from path
-                    File sourceFile = new File( fileToSend.getFilePath() );
-                    sourceFile.delete();
-                    elementsResponse.put( fileToSend );
-                } catch( IOException e ) {
-                    e.printStackTrace();
-                }
-            }
+        //it sends the information of Files to send and location saved
+        if( InternetConnection.isInternetWorking()){
+            SendSaveInfo sendInfo = new SendSaveInfo();
+            sendInfo.execute();
         }
 
+        //it generates the response to view a truncate the cola
         try {
-            result.put( KEY_ARRAY, elementsResponse );
+            if( !filesSended.isEmpty() ){
+                filesTemp = arrayFileToSendtoArrayJSON( filesSended );
+                filesSended = new ArrayList<FileToSend>();
+            } else {
+                filesTemp = new JSONArray();
+            }
+            result = buildResponse( filesTemp );
         } catch (JSONException e) {
             e.printStackTrace();
         }
 
         return result;
+    }
+
+    private List< FileToSend > createTemp(List< FileToSend > files){
+        List< FileToSend > temp = new ArrayList<FileToSend>(files.size());
+
+        return temp;
     }
 
     @Override
@@ -124,24 +128,12 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
         Log.d(TAG, "--------------------- setConfig ---------------------");
         try {
             if ( element.has( KEY_FILE_PATH ) && element.has( KEY_SERVER ) && element.has( KEY_FILE_NAME ) ){
-                //FileToSend(String filePath, String fileName, String server, Map < String, String > parameters)
-                Map< String, String > parameters = null;
-                if ( element.has( KEY_PARAMS ) ) {
-                    parameters = new HashMap<String, String>();
-                    JSONObject  params = element.getJSONObject( KEY_PARAMS );
-                    for ( int j = 0; j < params.names().length(); j++ ) {
-                        parameters.put(params.names().getString(j), (String) params.get( params.names().getString( j ) ) );
-                    }
-                }
-                FileToSend temp = new FileToSend( element.getString( KEY_FILE_PATH ), element.getString( KEY_FILE_NAME ), element.getString( KEY_SERVER ), parameters );
-                fileToSendDAO.insert( temp );
+                fileToSendDAO.insert( JSONObjectToFileToSend( element ) );
             } else if ( element.has( KEY_SERVER_LOCATION ) && element.has( KEY_USER_LOCATION ) && element.has( KEY_PASSWORD_LOCATION ) ) {
-                uriLocation = element.getString( KEY_SERVER_LOCATION );
-                userLocation = element.getString( KEY_USER_LOCATION );
-                passlocation = element.getString( KEY_PASSWORD_LOCATION );
-                configurationTracking = new ConfigurationTracking( uriLocation, passlocation, userLocation, 0.0, 0.0  );
-                configurationTrackingDAO = new ConfigurationTrackingDAOImple(this);
+                configurationTracking = new ConfigurationTracking( element.getString( KEY_SERVER_LOCATION ), element.getString( KEY_PASSWORD_LOCATION), element.getString( KEY_USER_LOCATION ), 0.0, 0.0  );
+                configurationTrackingDAO = new ConfigurationTrackingDAOImple( this );
                 configurationTrackingDAO.insert( configurationTracking  );
+                setDataLocation();
             }
         } catch (JSONException e) {
             Log.d( TAG, "--------------------- Estructura invalida para configuracion -----------------------" );
@@ -156,21 +148,12 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
             StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
             StrictMode.setThreadPolicy(policy);
         }
-        JSONObject result = new JSONObject();
-        fileToSendDAO = new FileToSendDAOImple( this );
-        // First we need to check availability of play services
-        if ( mGoogleApiClient == null && checkPlayServices() ) {
-            buildGoogleApiClient();
-        }
-
-        if( mGoogleApiClient != null && mGoogleApiClient != null ){
-            createLocationRequest();
-        }
-
-        if( mGoogleApiClient != null  && !mGoogleApiClient.isConnected() ) {
-            mGoogleApiClient.connect();
-        }
-
+        result = null;
+        fileToSendDAO = new FileToSendDAOSQLite( this );
+        locationDAO = new LocationDAOSQLLite( this );
+        filesSended = new ArrayList<FileToSend>();
+        filesTemp = new JSONArray();
+        startLocation();
         return result;
     }
 
@@ -227,6 +210,7 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
         mLocationRequest.setInterval( UPDATE_INTERVAL );
         mLocationRequest.setFastestInterval( FATEST_INTERVAL );
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY );
+        mLocationRequest.setSmallestDisplacement( DISPLACEMENT );
     }
 
     protected synchronized void buildGoogleApiClient() {
@@ -237,40 +221,21 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
                 .build();
     }
 
-    private void displayLocation() {
-        Log.d( TAG, "--------------------- longitude: " + mLastLocation.getLongitude() );
-        Log.d( TAG, "--------------------- latidude: " + mLastLocation.getLatitude() );
+    private void displayLocation( com.inffinix.plugins.Location location, String postfix ) {
+        Log.d( TAG, "longitude: " + location.getLongitude() + postfix );
+        Log.d( TAG, "latidude: " + location.getLatitude() + postfix );
     }
 
-    private void sendLocation() {
+    private void sendLocation(com.inffinix.plugins.Location location) throws IOException {//throws IOException{
         HttpClient httpClient = new DefaultHttpClient();
         HttpPost httpPost = new HttpPost(uriLocation);
         List<NameValuePair> nameValuePair = new ArrayList<NameValuePair>(4);
         nameValuePair.add( new BasicNameValuePair( KEY_PASSWORD_LOCATION, passlocation));
         nameValuePair.add( new BasicNameValuePair( KEY_USER_LOCATION, userLocation));
-        nameValuePair.add( new BasicNameValuePair( KEY_LATITUDE, Double.toString( mLastLocation.getLatitude() ) ) );
-        nameValuePair.add( new BasicNameValuePair( KEY_LONGITUDE, Double.toString( mLastLocation.getLongitude() ) ) );
-        displayLocation();
-        //Encoding POST data
-        try {
-            httpPost.setEntity(new UrlEncodedFormEntity(nameValuePair));
-
-        } catch (UnsupportedEncodingException e) {
-            Log.d(TAG, "EN UrlEncodedFormEntity");
-            e.printStackTrace();
-        }
-
-        try {
-            HttpResponse response = httpClient.execute(httpPost);
-            // write response to log
-            Log.d("Http Post Response:", response.toString());
-        } catch (ClientProtocolException e) {
-            // Log exception
-            e.printStackTrace();
-        } catch (IOException e) {
-            // Log exception
-            e.printStackTrace();
-        }
+        nameValuePair.add( new BasicNameValuePair( KEY_LATITUDE, Double.toString( location.getLatitude() ) ) );
+        nameValuePair.add( new BasicNameValuePair( KEY_LONGITUDE, Double.toString( location.getLongitude() ) ) );
+        httpPost.setEntity(new UrlEncodedFormEntity(nameValuePair));
+        httpClient.execute(httpPost);
     }
 
     private void setDataLocation(){
@@ -282,20 +247,14 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     }
 
     private List< String > sendFile( FileToSend fileToSend ) throws IOException {
-        Map< String, String > parameters = fileToSend.getParameters();
-
         httpFileUploader = new HttpFileUploader( fileToSend.getServer(), CHARSET );
         httpFileUploader.addHeaderField("User-Agent", USER_AGENT);
 
-        if( parameters != null ) {
-            Iterator it = parameters.entrySet().iterator();
-            while ( it.hasNext() ) {
-                Map.Entry pair = ( Map.Entry )it.next();
-                Log.d("----parameter", pair.getKey() + " = " + pair.getValue());
-                httpFileUploader.addFormField(""+pair.getKey(), ""+pair.getValue());
-                it.remove(); // avoids a ConcurrentModificationException
-            }
-        }
+        httpFileUploader.addFormField(KEY_PASSWORD, fileToSend.getPassword());
+        httpFileUploader.addFormField(KEY_LOGIN, fileToSend.getLogin());
+        httpFileUploader.addFormField(KEY_GROUP, fileToSend.getGroup());
+        httpFileUploader.addFormField(KEY_ACCOUNT, fileToSend.getAccount());
+        httpFileUploader.addFormField(KEY_DESCRIPTION, fileToSend.getDescription());
 
         File sourceFile = new File( fileToSend.getFilePath() );
         if( sourceFile.exists() ){
@@ -303,14 +262,124 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
         }
 
         return httpFileUploader.finish();
+    }
 
+    private void startLocation(){
+        // it checks availability of play services
+        if ( mGoogleApiClient == null && checkPlayServices() ) {
+            buildGoogleApiClient();
+            createLocationRequest();
+            if(!mGoogleApiClient.isConnected()){
+                mGoogleApiClient.connect();
+            }
+        }
+    }
+
+    private boolean thereAreConfigurationsLocation(){
+        return uriLocation != null && userLocation != null && passlocation != null;
     }
 
     @Override
     public void onLocationChanged( Location location) {
-        mLastLocation = location;
-        if( uriLocation != null && userLocation != null && passlocation != null ) {
-            sendLocation();
+        Log.d(TAG, "--------------------- onLocationChanged ---------------------");
+        if ( thereAreConfigurationsLocation() ) {
+            SendLocationAsync send = new SendLocationAsync();
+            send.execute( location );
+        }
+    }
+
+    private class SendLocationAsync extends AsyncTask<Location, Void, Void>{
+        @Override
+        protected Void doInBackground(Location... params) {
+            com.inffinix.plugins.Location locationSend = new com.inffinix.plugins.Location(0, params[0].getLatitude(), params[0].getLongitude(), new Date(), TYPE_LOCATION_OK);
+            try {
+                sendLocation( locationSend );
+                displayLocation(locationSend, "--------------");
+            } catch (IOException e) {
+                //if it cant send it will save in bd
+                locationSend.setType( TYPE_LOCATION_ERROR );
+                locationDAO.insert( locationSend );
+                displayLocation(locationSend, "***************");
+                e.printStackTrace();
+            }
+            return null;
+        }
+    }
+
+    private JSONObject fileToSendToJSONObject( FileToSend fileToSend ) throws JSONException {
+        JSONObject objectTemp = new JSONObject();
+        objectTemp.put(KEY_SERVER, fileToSend.getServer());
+        objectTemp.put(KEY_FILE_NAME, fileToSend.getFileName());
+        objectTemp.put(KEY_FILE_PATH, fileToSend.getFilePath());
+        return objectTemp;
+    }
+
+    private FileToSend JSONObjectToFileToSend( JSONObject element ) throws JSONException {
+        JSONObject parameters = element.getJSONObject( KEY_PARAMS );
+        FileToSend temp = new FileToSend( 0, parameters.getString(KEY_DESCRIPTION) ,
+                parameters.getString(KEY_ACCOUNT),
+                parameters.getString(KEY_GROUP),
+                parameters.getString(KEY_LOGIN),
+                parameters.getString(KEY_PASSWORD),
+                element.getString(KEY_SERVER),
+                element.getString(KEY_FILE_NAME),
+                element.getString(KEY_FILE_PATH) );
+        return temp;
+    }
+
+    private JSONObject buildResponse( JSONArray array ) throws JSONException {
+        JSONObject object = new JSONObject();
+        object.put( KEY_ARRAY, array );
+        return object;
+    }
+
+    private JSONArray arrayFileToSendtoArrayJSON( List< FileToSend > array ) throws JSONException {
+        JSONArray temp = new JSONArray();
+        for( FileToSend file : array ){
+            temp.put( fileToSendToJSONObject( file ) );
+        }
+        return  temp;
+    }
+
+    private class SendSaveInfo extends AsyncTask<Void, Void, Void>{
+
+        @Override
+        protected Void doInBackground(Void... params) {
+            //configuration was initializing on setConfig
+            //process Files
+            files = fileToSendDAO.getAll();
+            if( !files.isEmpty() ) {
+                for( FileToSend fileToSend : files ) {
+                    try {
+                        response = sendFile( fileToSend );
+                        for ( String line : response ) {
+                            Log.d( TAG, "SERVER REPLIED " + line );
+                        }
+
+                        fileToSendDAO.delete(fileToSend.getId());
+                        filesSended.add( fileToSend );
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+
+            //process location
+            if ( thereAreConfigurationsLocation() ){
+                locations = locationDAO.getAll();
+                if( !locations.isEmpty() ) {
+                    for( com.inffinix.plugins.Location loc : locations ) {
+                        try {
+                            sendLocation( loc );
+                            locationDAO.delete( loc.getId() );
+                            displayLocation(loc, "..............");
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }
+            return null;
         }
     }
 }

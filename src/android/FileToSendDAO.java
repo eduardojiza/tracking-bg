@@ -7,6 +7,6 @@ import java.util.List;
  */
 public interface FileToSendDAO {
     public List<FileToSend> getAll();
-    public int insert(FileToSend file);
-    public int delete(FileToSend file);
+    public void insert(FileToSend file);
+    public void delete(int id);
 }

@@ -46,14 +46,19 @@
             <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
         </config-file>
         
-        <source-file src="src/android/NetworkService.java" target-dir="src/com/inffinix/plugins" />
-        <source-file src="src/android/HttpFileUploader.java" target-dir="src/com/inffinix/plugins" />
         <source-file src="src/android/ConfigurationTracking.java" target-dir="src/com/inffinix/plugins" />
         <source-file src="src/android/ConfigurationTrackingDAO.java" target-dir="src/com/inffinix/plugins" />
         <source-file src="src/android/ConfigurationTrackingDAOImple.java" target-dir="src/com/inffinix/plugins" />
+        <source-file src="src/android/DbHelper.java" target-dir="src/com/inffinix/plugins" />
         <source-file src="src/android/FileToSend.java" target-dir="src/com/inffinix/plugins" />
         <source-file src="src/android/FileToSendDAO.java" target-dir="src/com/inffinix/plugins" />
-        <source-file src="src/android/FileToSendDAOImple.java" target-dir="src/com/inffinix/plugins" />
+        <source-file src="src/android/FileToSendDAOSQLite.java" target-dir="src/com/inffinix/plugins" />
+        <source-file src="src/android/HttpFileUploader.java" target-dir="src/com/inffinix/plugins" />
+        <source-file src="src/android/InternetConnection.java" target-dir="src/com/inffinix/plugins" />
+        <source-file src="src/android/Location.java" target-dir="src/com/inffinix/plugins" />
+        <source-file src="src/android/LocationDAO.java" target-dir="src/com/inffinix/plugins" />
+        <source-file src="src/android/LocationDAOSQLLite.java" target-dir="src/com/inffinix/plugins" />
+        <source-file src="src/android/NetworkService.java" target-dir="src/com/inffinix/plugins" />
     </platform>
 	
 </plugin>
