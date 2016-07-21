@@ -72,6 +72,7 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     private List< String > response = null;
     private LocationDAO locationDAO;
     private List<com.inffinix.plugins.Location> locations;
+    private boolean isWorking = false;
 
     //Location
     private String uriLocation = null;
@@ -80,7 +81,7 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     private GoogleApiClient mGoogleApiClient = null;
     private boolean mRequestingLocationUpdates = false;
     private LocationRequest mLocationRequest = null;
-    private static int UPDATE_INTERVAL = 10000; // 10 sec
+    private static int UPDATE_INTERVAL = 60*1000; // 10 sec
     private static int FATEST_INTERVAL = 5000; // 5 sec
     private static int DISPLACEMENT = 10;
     private ConfigurationTracking configurationTracking = null;
@@ -89,7 +90,7 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     @Override
     protected JSONObject doWork() {
         //it sends the information of Files to send and location saved
-        if( InternetConnection.isInternetWorking()){
+        if( InternetConnection.isInternetWorking() && !isWorking){
             SendSaveInfo sendInfo = new SendSaveInfo();
             sendInfo.execute();
         }
@@ -347,6 +348,7 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
         protected Void doInBackground(Void... params) {
             //configuration was initializing on setConfig
             //process Files
+            isWorking = true;
             files = fileToSendDAO.getAll();
             if( !files.isEmpty() ) {
                 for( FileToSend fileToSend : files ) {
@@ -379,6 +381,7 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
                     }
                 }
             }
+            isWorking = false;
             return null;
         }
     }
