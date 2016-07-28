@@ -6,10 +6,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.logging.Logger;
@@ -29,7 +26,7 @@ public class LocationDAOSQLLite implements LocationDAO{
             + CN_ID + " integer primary key autoincrement, "
             + CN_LATITUDE + " real not null, "
             + CN_LONGITUDE + " real not null, "
-            + CN_DATE + " date not null, "
+            + CN_DATE + " integer not null, "
             + CN_TYPE + " integer not null );";
 
     private DbHelper helper;
@@ -42,30 +39,11 @@ public class LocationDAOSQLLite implements LocationDAO{
         db = helper.getWritableDatabase();
     }
 
-    public static String DateToString(Date date){
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(date);
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        return sdf.format(cal.getTime());
-    }
-
-
-    public static Date StringToDate(String date){
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        Date convertedCurrentDate;
-        try {
-            convertedCurrentDate = sdf.parse(date);
-        } catch (ParseException ex) {
-            convertedCurrentDate = new Date();
-        }
-        return convertedCurrentDate;
-    }
-
     public ContentValues generationContentValues( Location location ) {
         ContentValues values = new ContentValues();
         values.put( CN_LATITUDE, location.getLatitude() );
         values.put( CN_LONGITUDE, location.getLongitude() );
-        values.put( CN_DATE, DateToString(location.getDate()) );
+        values.put( CN_DATE, location.getDate().getTime() );
         values.put( CN_TYPE, location.getType() );
         return values;
     }
@@ -89,16 +67,18 @@ public class LocationDAOSQLLite implements LocationDAO{
         int id;
         double latitude;
         double longitude;
-        Date date;
+        long date;
         int type;
         Location location;
         while( cursor.moveToNext() ) {
             id = cursor.getInt(cursor.getColumnIndex(CN_ID));
             latitude = cursor.getDouble(cursor.getColumnIndex(CN_LATITUDE));
             longitude = cursor.getDouble(cursor.getColumnIndex(CN_LONGITUDE));
-            date = StringToDate( cursor.getString(cursor.getColumnIndex(CN_DATE)));
+            date = cursor.getLong(cursor.getColumnIndex(CN_DATE));
             type = cursor.getInt(cursor.getColumnIndex(CN_TYPE));
-            location = new Location( id, latitude, longitude, date, type );
+
+            //(int id, double latitude, double longitude, Date date, int type)
+            location = new Location( id, latitude, longitude, new Date(date*1000), type );
             list.add( location );
         }
         return list;
