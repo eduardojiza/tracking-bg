@@ -30,7 +30,9 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
@@ -59,9 +61,11 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     private static final String KEY_USER_LOCATION = "login";
     private static final String KEY_LATITUDE = "latitude";
     private static final String KEY_LONGITUDE = "longitude";
+    private static final String KEY_DATE = "activityDate";
+    private static final String KEY_TYPE = "type";
 
-    private static final int TYPE_LOCATION_OK = 0;
-    private static final int TYPE_LOCATION_ERROR = 1;
+    private static final int TYPE_LOCATION_OK = 4;
+    private static final int TYPE_LOCATION_ERROR = 6;
 
     private HttpFileUploader httpFileUploader;
     private FileToSendDAO fileToSendDAO;
@@ -81,7 +85,7 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
     private GoogleApiClient mGoogleApiClient = null;
     private boolean mRequestingLocationUpdates = false;
     private LocationRequest mLocationRequest = null;
-    private static int UPDATE_INTERVAL = 60*1000; // 10 sec
+    private static int UPDATE_INTERVAL = 4 * 60 * 1000; // 4 min, 60 = 1 min, 1000 = 1s
     private static int FATEST_INTERVAL = 5000; // 5 sec
     private static int DISPLACEMENT = 10;
     private ConfigurationTracking configurationTracking = null;
@@ -227,14 +231,21 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
         Log.d( TAG, "latidude: " + location.getLatitude() + postfix );
     }
 
-    private void sendLocation(com.inffinix.plugins.Location location) throws IOException {//throws IOException{
+    private void sendLocation(com.inffinix.plugins.Location location) throws IOException {
+        Calendar cal = Calendar.getInstance();
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+        String strDate = sdf.format(cal.getTime());
         HttpClient httpClient = new DefaultHttpClient();
         HttpPost httpPost = new HttpPost(uriLocation);
         List<NameValuePair> nameValuePair = new ArrayList<NameValuePair>(4);
+        Log.d("Location", "++++++++++ " + location.toString() );
+        Log.d("date", DateToString( location.getDate() ) );
         nameValuePair.add( new BasicNameValuePair( KEY_PASSWORD_LOCATION, passlocation));
         nameValuePair.add( new BasicNameValuePair( KEY_USER_LOCATION, userLocation));
         nameValuePair.add( new BasicNameValuePair( KEY_LATITUDE, Double.toString( location.getLatitude() ) ) );
         nameValuePair.add( new BasicNameValuePair( KEY_LONGITUDE, Double.toString( location.getLongitude() ) ) );
+        nameValuePair.add( new BasicNameValuePair( KEY_DATE, DateToString( location.getDate() ) ) );
+        nameValuePair.add( new BasicNameValuePair( KEY_TYPE, Integer.toString( location.getType() ) ) );
         httpPost.setEntity(new UrlEncodedFormEntity(nameValuePair));
         httpClient.execute(httpPost);
     }
@@ -340,6 +351,13 @@ public class NetworkService extends BackgroundService implements GoogleApiClient
             temp.put( fileToSendToJSONObject( file ) );
         }
         return  temp;
+    }
+
+    public static String DateToString(Date date){
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(date);
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+        return sdf.format(cal.getTime());
     }
 
     private class SendSaveInfo extends AsyncTask<Void, Void, Void>{
